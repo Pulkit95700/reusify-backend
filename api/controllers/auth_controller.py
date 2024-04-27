@@ -10,7 +10,7 @@ from api.helpers.lib import lib
 from api.models.user_model import User
 from api.config.config import Config
 from bson.objectid import ObjectId
-from api.constants import roles
+from api.constants import BUYER_ROLE
 from api.helpers.ApiResponse import ApiResponse
 from api.helpers.ApiError import ApiError
 import jwt
@@ -31,18 +31,14 @@ class SignUp(Resource):
         username = data.get('username')
         password = data.get('password')
         email = data.get('email')
-        fcm_token = data.get('fcm_token')
-        role = data.get('role')
+        fcm_token = data.get('fcm_token') or ''
 
-        if not username or not password or not role or not email or not fcm_token:
-            return ApiError(400, 'Missing username, password, role, email or fcm_token'), 400
+        if not username or not password or not email:
+            return ApiError(400, 'Missing username, password email or fcm_token'), 400
         
-        if not username.strip() or not password.strip() or not role.strip() or not email.strip() or not fcm_token.strip():
-            return ApiError(400, 'Invalid username, password or role'), 400
-        
-        if(role not in roles):
-            return ApiError(400, 'Role not matched with buyer, seller or admin'), 400
-        
+        if not username.strip() or not password.strip() or not email.strip():
+            return ApiError(400, 'Invalid username, password'), 400
+
         if(len(password) < 6):
             return ApiError(400, 'Password must be at least 6 characters'), 400
         
@@ -68,18 +64,18 @@ class SignUp(Resource):
             
             bcrypt = lib.get_bcrypt()
             password = bcrypt.generate_password_hash(password).decode('utf-8')
-            new_user = User(username, password, email, role, fcm_token)
+            new_user = User(username, password, email, fcm_token)
             created_user = db.users.insert_one(new_user.to_json())
             
             accessToken = jwt.encode({
                 '_id': str(created_user.inserted_id),
-                'role': role,
+                'role': BUYER_ROLE,
                 'exp': Config.JWT_ACCESS_TOKEN_EXPIRES
             }, Config.JWT_SECRET_KEY, algorithm='HS256')
             
             refreshToken = jwt.encode({
                 '_id': str(created_user.inserted_id),
-                'role': role,
+                'role': BUYER_ROLE,
                 'exp': Config.JWT_REFRESH_TOKEN_EXPIRES
             }, Config.JWT_SECRET_KEY, algorithm='HS256')
 
@@ -96,7 +92,7 @@ class Login(Resource):
         data = request.get_json()
         username = str(data.get('username'))
         password = str(data.get('password'))
-        fcm_token = str(data.get('fcm_token'))
+        fcm_token = str(data.get('fcm_token')) or ''
 
         if not username or not password:
             return ApiError(400, 'Missing username or password'), 400
@@ -122,17 +118,18 @@ class Login(Resource):
                 return ApiError(400, 'Invalid username or password'), 400
             
             # update the fcm token
-            db.users.update_one({'_id': user.get('_id')}, {'$set': {'fcm_token': fcm_token}})
+            if fcm_token != '':
+                db.users.update_one({'_id': user.get('_id')}, {'$set': {'fcm_token': fcm_token}})
 
             accessToken = jwt.encode({
                 '_id': str(user.get('_id')),
-                'role': user.get('role'),
+                'role': BUYER_ROLE,
                 "exp": datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(seconds=Config.JWT_ACCESS_TOKEN_EXPIRES)
             }, Config.JWT_SECRET_KEY, algorithm='HS256')
             
             refreshToken = jwt.encode({
                 '_id': str(user.get('_id')),
-                'role': user.get('role'),
+                'role': BUYER_ROLE,
                 "exp": datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(seconds=Config.JWT_REFRESH_TOKEN_EXPIRES)
             }, Config.JWT_SECRET_KEY, algorithm='HS256')
 
@@ -166,10 +163,9 @@ class Refresh(Resource):
             if not user:
                 return ApiError(404, 'User not found'), 404
             
-            
             accessToken = jwt.encode({
                 '_id': str(user.get('_id')),
-                'role': user.get('role'),
+                'role': BUYER_ROLE,
                 "exp": datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(seconds=Config.JWT_ACCESS_TOKEN_EXPIRES)
             }, Config.JWT_SECRET_KEY, algorithm='HS256')
             

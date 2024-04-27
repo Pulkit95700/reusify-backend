@@ -18,8 +18,13 @@ def protected(f):
             payload = jwt.decode(accessToken, Config.JWT_SECRET_KEY, algorithms=['HS256'])
             user = db.get_db().users.find_one({'_id': ObjectId(payload['_id'])})
 
+            role = payload.get('role')
             if not user:
                 return ApiError(404, 'User not found'), 404
+            if not role:
+                return ApiError(401, 'Role not found'), 401
+            
+            user['role'] = role
             return f(user, *args, **kwargs)
         except Exception as e:
             return ApiError(401, str(e)), 401
