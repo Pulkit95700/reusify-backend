@@ -8,7 +8,8 @@ class Config:
     JWT_SECRET_KEY = config('JWT_SECRET_KEY')
     JWT_ACCESS_TOKEN_EXPIRES = config('JWT_ACCESS_TOKEN_EXPIRES', cast=int, default=900)
     JWT_REFRESH_TOKEN_EXPIRES = config('JWT_REFRESH_TOKEN_EXPIRES', cast=int, default=2592000)
-    
+    PORT = config('PORT', cast=int, default=5000)
+
 class DevConfig(Config):
     DEBUG = config('DEBUG', cast=bool, default=True)
 
@@ -16,7 +17,7 @@ class TestConfig(Config):
     pass 
 
 class ProductionConfig(Config):
-    DEBUG = config('DEBUG', cast=bool, default=False)
+    DEBUG = False
 
 
 config_dict = {
