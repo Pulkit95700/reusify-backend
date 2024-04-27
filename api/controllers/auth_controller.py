@@ -11,6 +11,8 @@ from api.models.user_model import User
 from api.config.config import Config
 from bson.objectid import ObjectId
 from api.constants import roles
+from api.helpers.ApiResponse import ApiResponse
+from api.helpers.ApiError import ApiError
 import jwt
 import os
 
@@ -33,36 +35,36 @@ class SignUp(Resource):
         role = data.get('role')
 
         if not username or not password or not role or not email or not fcm_token:
-            return {'message': 'Missing username, password, role, email or fcm_token'}, 400
+            return ApiError(400, 'Missing username, password, role, email or fcm_token'), 400
         
         if not username.strip() or not password.strip() or not role.strip() or not email.strip() or not fcm_token.strip():
-            return {'message': 'Invalid username, password or role'}, 400
+            return ApiError(400, 'Invalid username, password or role'), 400
         
         if(role not in roles):
-            return {'message': 'Role not matched with buyer, seller or admin'}, 400
+            return ApiError(400, 'Role not matched with buyer, seller or admin'), 400
         
         if(len(password) < 6):
-            return {'message': 'Password must be at least 6 characters'}, 400
+            return ApiError(400, 'Password must be at least 6 characters'), 400
         
         if(len(username) < 3):
-            return {'message': 'Username must be at least 3 characters'}, 400
+            return ApiError(400, 'Username must be at least 3 characters'), 400
         
         if(email.find('@') == -1 or email.find('.') == -1):
-            return {'message': 'Invalid email'}, 400
+            return ApiError(400, 'Invalid Email'), 400
         
         try:
             db = DB.get_db()
 
             if(db is None):
-                return {'message': 'Database connection error'}, 500
+                return ApiError(500, 'Database Connection Error'), 500
             
             user = db.users.find_one({'username': username})    
             if user:
-                return {'message': 'User already exists'}, 400
+                return ApiError(400, 'User already exists'), 400
 
             email_exists = db.users.find_one({'email': email})
             if email_exists:
-                return {'message': 'Email already exists'}, 400
+                return ApiError(400, 'Email already exists'), 400
             
             bcrypt = lib.get_bcrypt()
             password = bcrypt.generate_password_hash(password).decode('utf-8')
@@ -81,9 +83,9 @@ class SignUp(Resource):
                 'exp': Config.JWT_REFRESH_TOKEN_EXPIRES
             }, Config.JWT_SECRET_KEY, algorithm='HS256')
 
-            return {'message': 'User created successfully', 'accessToken': accessToken, 'refreshToken': refreshToken}, 201
+            return ApiResponse(201, 'User created successfully', {'accessToken': accessToken, 'refreshToken': refreshToken}), 201
         except Exception as e:
-            return {'message': str(e)}, 400
+            return ApiError(400, str(e)), 400
 
 
 @auth_ns.route('/login')
@@ -97,27 +99,27 @@ class Login(Resource):
         fcm_token = str(data.get('fcm_token'))
 
         if not username or not password:
-            return {'message': 'Missing username or password'}, 400
+            return ApiError(400, 'Missing username or password'), 400
         
         if not username.strip() or not password.strip():
-            return {'message': 'Invalid username or password'}, 400
+            return ApiError(400, 'Invalid username or password'), 400
         
         try:
             db = DB.get_db()
 
             if(db is None):
-                return {'message': 'Database connection error'}, 500
+                return ApiError(500, 'Database connection error'), 500
             
             user = db.users.find_one({'username': username})
 
             if not user:
-                return {'message': 'User not found'}, 404
+                return ApiError(404, 'User not found'), 404
             
             # check if the password is correct
             bcrypt = lib.get_bcrypt()
             check_password = bcrypt.check_password_hash(user.get('password'), password)
             if not check_password:
-                return {'message': 'Invalid username or password'}, 400
+                return ApiError(400, 'Invalid username or password'), 400
             
             # update the fcm token
             db.users.update_one({'_id': user.get('_id')}, {'$set': {'fcm_token': fcm_token}})
@@ -134,9 +136,9 @@ class Login(Resource):
                 "exp": datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(seconds=Config.JWT_REFRESH_TOKEN_EXPIRES)
             }, Config.JWT_SECRET_KEY, algorithm='HS256')
 
-            return {'message': 'Login successful', 'accessToken': accessToken, 'refreshToken': refreshToken}, 200
+            return ApiResponse(200, 'Login successful', {'accessToken': accessToken, 'refreshToken': refreshToken}), 200
         except Exception as e:
-            return {'message': str(e)}, 400
+            return ApiError(400, str(e)), 400
         
 
 @auth_ns.route('/refresh')
@@ -148,21 +150,21 @@ class Refresh(Resource):
         refreshToken = data.get('refreshToken')
         
         if not refreshToken:
-            return {'message': 'Missing refreshToken'}, 400
+            return ApiError(400, 'Missing refreshToken'), 400
         
         try:
             data = jwt.decode(refreshToken, Config.JWT_SECRET_KEY, algorithms=["HS256"])
             db = DB.get_db()
 
             if(db is None):
-                return {'message': 'Database connection error'}, 500
+                return ApiError(500, 'Database connection error'), 500
             
             user = db.users.find_one({
                 '_id': ObjectId(data.get('_id'))
             })
             
             if not user:
-                return {'message': 'User not found'}, 404
+                return ApiError(404, 'User not found'), 404
             
             
             accessToken = jwt.encode({
@@ -171,12 +173,14 @@ class Refresh(Resource):
                 "exp": datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(seconds=Config.JWT_ACCESS_TOKEN_EXPIRES)
             }, Config.JWT_SECRET_KEY, algorithm='HS256')
             
-            return {'message': 'Token refreshed successfully', 'accessToken': accessToken}, 200
+            return ApiResponse(200, 'Token refreshed successfully', {'accessToken': accessToken}), 200
         except Exception as e:
-            return {'message': str(e)}, 400
-        
-@auth_ns.route('/protected')
-class SampleProtected(Resource):
-    @protected  
+            return ApiError(400, str(e)), 400
+
+@auth_ns.route('/verify-user')
+class VerifyUser(Resource):
+    @protected
     def get(user, self):
-        return {'message': 'This is a protected route'}, 200
+        user.pop('password')
+        user.pop('_id')
+        return ApiResponse(200, 'User Verified Successfully', user), 200        
