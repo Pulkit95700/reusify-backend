@@ -10,6 +10,7 @@ from api.helpers.lib import lib
 from api.models.user_model import User
 from api.config.config import Config
 from bson.objectid import ObjectId
+from api.constants import roles
 import jwt
 import os
 
@@ -27,12 +28,27 @@ class SignUp(Resource):
         data = request.get_json()
         username = data.get('username')
         password = data.get('password')
+        email = data.get('email')
+        fcm_token = data.get('fcm_token')
         role = data.get('role')
-        if not username or not password or not role:
-            return {'message': 'Missing username, password or role'}, 400
+
+        if not username or not password or not role or not email or not fcm_token:
+            return {'message': 'Missing username, password, role, email or fcm_token'}, 400
         
-        if not username.strip() or not password.strip() or not role.strip():
+        if not username.strip() or not password.strip() or not role.strip() or not email.strip() or not fcm_token.strip():
             return {'message': 'Invalid username, password or role'}, 400
+        
+        if(role not in roles):
+            return {'message': 'Role not matched with buyer, seller or admin'}, 400
+        
+        if(len(password) < 6):
+            return {'message': 'Password must be at least 6 characters'}, 400
+        
+        if(len(username) < 3):
+            return {'message': 'Username must be at least 3 characters'}, 400
+        
+        if(email.find('@') == -1 or email.find('.') == -1):
+            return {'message': 'Invalid email'}, 400
         
         try:
             db = DB.get_db()
@@ -43,13 +59,16 @@ class SignUp(Resource):
             user = db.users.find_one({'username': username})    
             if user:
                 return {'message': 'User already exists'}, 400
+
+            email_exists = db.users.find_one({'email': email})
+            if email_exists:
+                return {'message': 'Email already exists'}, 400
             
             bcrypt = lib.get_bcrypt()
             password = bcrypt.generate_password_hash(password).decode('utf-8')
-            new_user = User(username, password, role)
+            new_user = User(username, password, email, role, fcm_token)
             created_user = db.users.insert_one(new_user.to_json())
             
-            print(created_user)
             accessToken = jwt.encode({
                 '_id': str(created_user.inserted_id),
                 'role': role,
@@ -75,6 +94,7 @@ class Login(Resource):
         data = request.get_json()
         username = str(data.get('username'))
         password = str(data.get('password'))
+        fcm_token = str(data.get('fcm_token'))
 
         if not username or not password:
             return {'message': 'Missing username or password'}, 400
@@ -93,12 +113,14 @@ class Login(Resource):
             if not user:
                 return {'message': 'User not found'}, 404
             
-            
             # check if the password is correct
             bcrypt = lib.get_bcrypt()
             check_password = bcrypt.check_password_hash(user.get('password'), password)
             if not check_password:
                 return {'message': 'Invalid username or password'}, 400
+            
+            # update the fcm token
+            db.users.update_one({'_id': user.get('_id')}, {'$set': {'fcm_token': fcm_token}})
 
             accessToken = jwt.encode({
                 '_id': str(user.get('_id')),

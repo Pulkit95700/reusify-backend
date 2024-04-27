@@ -9,6 +9,7 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = config('JWT_ACCESS_TOKEN_EXPIRES', cast=int, default=900)
     JWT_REFRESH_TOKEN_EXPIRES = config('JWT_REFRESH_TOKEN_EXPIRES', cast=int, default=2592000)
     PORT = config('PORT', cast=int, default=5000)
+    TYPE = config('TYPE', default='dev')
 
 class DevConfig(Config):
     DEBUG = config('DEBUG', cast=bool, default=True)

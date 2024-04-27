@@ -1,3 +1,5 @@
 BUYER_ROLE = 'buyer'
 SELLER_ROLE = 'seller'
 ADMIN_ROLE = 'admin'
+
+roles = [BUYER_ROLE, SELLER_ROLE, ADMIN_ROLE]
