@@ -186,4 +186,4 @@ class VerifyUser(Resource):
         user['id'] = str(user.get('_id'))
         user.pop('password')
         user.pop('_id')
-        return ApiResponse(200, 'User Verified Successfully', user), 200        
+        return ApiResponse(200, 'User Verified Successfully', {'user': user}), 200        
