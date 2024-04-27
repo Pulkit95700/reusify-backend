@@ -28,22 +28,19 @@ class SignUp(Resource):
     def post(self):
         """Create a new user"""
         data = request.get_json()
-        username = data.get('username')
+        full_name = data.get('full_name')
         password = data.get('password')
         email = data.get('email')
         fcm_token = data.get('fcm_token') or ''
 
-        if not username or not password or not email:
-            return ApiError(400, 'Missing username, password or email'), 400
+        if not full_name or not password or not email:
+            return ApiError(400, 'Missing full_name, email or password'), 400
         
-        if not username.strip() or not password.strip() or not email.strip():
-            return ApiError(400, 'Invalid username, password'), 400
+        if not password.strip() or not email.strip():
+            return ApiError(400, 'Invalid email or password'), 400
 
         if(len(password) < 6):
             return ApiError(400, 'Password must be at least 6 characters'), 400
-        
-        if(len(username) < 3):
-            return ApiError(400, 'Username must be at least 3 characters'), 400
         
         if(email.find('@') == -1 or email.find('.') == -1):
             return ApiError(400, 'Invalid Email'), 400
@@ -54,17 +51,13 @@ class SignUp(Resource):
             if(db is None):
                 return ApiError(500, 'Database Connection Error'), 500
             
-            user = db.users.find_one({'username': username})    
+            user = db.users.find_one({'email': email})    
             if user:
                 return ApiError(400, 'User already exists'), 400
-
-            email_exists = db.users.find_one({'email': email})
-            if email_exists:
-                return ApiError(400, 'Email already exists'), 400
             
             bcrypt = lib.get_bcrypt()
             password = bcrypt.generate_password_hash(password).decode('utf-8')
-            new_user = User(username, password, email, fcm_token)
+            new_user = User(full_name, password, email, fcm_token)
             created_user = db.users.insert_one(new_user.to_json())
             
             accessToken = jwt.encode({
@@ -90,14 +83,14 @@ class Login(Resource):
     def post(self):
         """Generate a JWT pair"""
         data = request.get_json()
-        username = str(data.get('username'))
+        email = str(data.get('email'))
         password = str(data.get('password'))
         fcm_token = str(data.get('fcm_token')) or ''
 
-        if not username or not password:
+        if not email or not password:
             return ApiError(400, 'Missing username or password'), 400
         
-        if not username.strip() or not password.strip():
+        if not email.strip() or not password.strip():
             return ApiError(400, 'Invalid username or password'), 400
         
         try:
@@ -106,7 +99,7 @@ class Login(Resource):
             if(db is None):
                 return ApiError(500, 'Database connection error'), 500
             
-            user = db.users.find_one({'username': username})
+            user = db.users.find_one({'email': email})
 
             if not user:
                 return ApiError(404, 'User not found'), 404
