@@ -4,7 +4,7 @@ from bson import Timestamp
 from api.utils import get_timestamp
 
 class User:
-    def __init__(self, full_name, password, email, fcm_token, created_at=get_timestamp()):
+    def __init__(self, full_name, password, email, fcm_token=None, created_at=get_timestamp()):
         self.full_name = full_name
         self.password = password
         self.email = email

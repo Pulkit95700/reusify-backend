@@ -31,7 +31,7 @@ class SignUp(Resource):
         full_name = data.get('full_name')
         password = data.get('password')
         email = data.get('email')
-        fcm_token = data.get('fcm_token') or ''
+        fcm_token = data.get('fcm_token') or None
 
         if not full_name or not password or not email:
             return ApiError(400, 'Missing full_name, email or password'), 400
@@ -72,7 +72,10 @@ class SignUp(Resource):
                 'exp': Config.JWT_REFRESH_TOKEN_EXPIRES
             }, Config.JWT_SECRET_KEY, algorithm='HS256')
 
-            return ApiResponse(201, 'User created successfully', {'accessToken': accessToken, 'refreshToken': refreshToken}), 201
+            user = db.users.find_one({'_id': ObjectId(created_user.inserted_id)})
+            user.pop('password')
+            user['_id'] = str(user.get('_id'))
+            return ApiResponse(201, 'User created successfully', {'accessToken': accessToken, 'refreshToken': refreshToken, 'user': user}), 201
         except Exception as e:
             return ApiError(400, str(e)), 400
 
@@ -113,6 +116,10 @@ class Login(Resource):
             # update the fcm token
             if fcm_token != '':
                 db.users.update_one({'_id': user.get('_id')}, {'$set': {'fcm_token': fcm_token}})
+            
+            
+            user['fcm_token'] = fcm_token
+            user['_id'] = str(user.get('_id'))
 
             accessToken = jwt.encode({
                 '_id': str(user.get('_id')),
@@ -126,7 +133,10 @@ class Login(Resource):
                 "exp": datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(seconds=Config.JWT_REFRESH_TOKEN_EXPIRES)
             }, Config.JWT_SECRET_KEY, algorithm='HS256')
 
-            return ApiResponse(200, 'Login successful', {'accessToken': accessToken, 'refreshToken': refreshToken}), 200
+
+            user.pop('password')
+            
+            return ApiResponse(200, 'Login successful', {'accessToken': accessToken, 'refreshToken': refreshToken, 'user': user}), 200
         except Exception as e:
             return ApiError(400, str(e)), 400
         
@@ -171,5 +181,5 @@ class VerifyUser(Resource):
     @protected
     def get(user, self):
         user.pop('password')
-        user.pop('_id')
+        user['_id'] = str(user.get('_id'))
         return ApiResponse(200, 'User Verified Successfully', user), 200        
