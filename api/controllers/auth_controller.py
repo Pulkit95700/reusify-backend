@@ -34,7 +34,7 @@ class SignUp(Resource):
         fcm_token = data.get('fcm_token') or ''
 
         if not username or not password or not email:
-            return ApiError(400, 'Missing username, password email or fcm_token'), 400
+            return ApiError(400, 'Missing username, password or email'), 400
         
         if not username.strip() or not password.strip() or not email.strip():
             return ApiError(400, 'Invalid username, password'), 400
