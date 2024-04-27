@@ -73,8 +73,9 @@ class SignUp(Resource):
             }, Config.JWT_SECRET_KEY, algorithm='HS256')
 
             user = db.users.find_one({'_id': ObjectId(created_user.inserted_id)})
+            user['id'] = str(user.get('_id'))
             user.pop('password')
-            user['_id'] = str(user.get('_id'))
+            user.pop('_id')
             return ApiResponse(201, 'User created successfully', {'accessToken': accessToken, 'refreshToken': refreshToken, 'user': user}), 201
         except Exception as e:
             return ApiError(400, str(e)), 400
@@ -119,7 +120,8 @@ class Login(Resource):
             
             
             user['fcm_token'] = fcm_token
-            user['_id'] = str(user.get('_id'))
+            user['id'] = str(user.get('_id'))
+            
 
             accessToken = jwt.encode({
                 '_id': str(user.get('_id')),
@@ -135,6 +137,7 @@ class Login(Resource):
 
 
             user.pop('password')
+            user.pop('_id')
             
             return ApiResponse(200, 'Login successful', {'accessToken': accessToken, 'refreshToken': refreshToken, 'user': user}), 200
         except Exception as e:
@@ -180,6 +183,7 @@ class Refresh(Resource):
 class VerifyUser(Resource):
     @protected
     def get(user, self):
+        user['id'] = str(user.get('_id'))
         user.pop('password')
-        user['_id'] = str(user.get('_id'))
+        user.pop('_id')
         return ApiResponse(200, 'User Verified Successfully', user), 200        
