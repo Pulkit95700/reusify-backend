@@ -1,7 +1,6 @@
 # here we are going to use namespace for our blueprints.
 # blueprints helps our project to split into various modules so that we can separate our code
 import datetime
-from flask.views import MethodView
 from flask_restx import Namespace, Resource
 from flask import request
 from api.middlewares.auth_middleware import protected
@@ -14,7 +13,6 @@ from api.constants import BUYER_ROLE
 from api.helpers.ApiResponse import ApiResponse
 from api.helpers.ApiError import ApiError
 import jwt
-import os
 
 # here we are going to use namespace for our blueprints.
 # namespace is just like router in express js
@@ -63,13 +61,13 @@ class SignUp(Resource):
             accessToken = jwt.encode({
                 '_id': str(created_user.inserted_id),
                 'role': BUYER_ROLE,
-                'exp': Config.JWT_ACCESS_TOKEN_EXPIRES
+                'exp': datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(seconds=Config.JWT_ACCESS_TOKEN_EXPIRES)
             }, Config.JWT_SECRET_KEY, algorithm='HS256')
             
             refreshToken = jwt.encode({
                 '_id': str(created_user.inserted_id),
                 'role': BUYER_ROLE,
-                'exp': Config.JWT_REFRESH_TOKEN_EXPIRES
+                'exp': datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(seconds=Config.JWT_REFRESH_TOKEN_EXPIRES)
             }, Config.JWT_SECRET_KEY, algorithm='HS256')
 
             user = db.users.find_one({'_id': ObjectId(created_user.inserted_id)})

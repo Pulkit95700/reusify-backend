@@ -1,6 +1,7 @@
 from flask import Flask
 from flask_restx import Api
 from .controllers.auth_controller import auth_ns
+from .controllers.company_controller import company_ns
 from .config.config import config_dict, Config
 from flask_bcrypt import Bcrypt
 from api.db import db
@@ -17,5 +18,6 @@ def create_app(config=config):
 
     api = Api(app)
     api.add_namespace(auth_ns, path='/user/auth')
+    api.add_namespace(company_ns, path='/company')
 
     return app

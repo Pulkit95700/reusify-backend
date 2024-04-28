@@ -10,6 +10,8 @@ class User:
         self.email = email
         self.fcm_token = fcm_token
         self.created_at = created_at
+        self.address = None
+        self.phone = None 
 
     def to_json(self):
         return {
