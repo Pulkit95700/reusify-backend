@@ -8,7 +8,10 @@ class User:
         self.full_name = full_name
         self.password = password
         self.email = email
-        self.fcm_token = fcm_token
+        if(fcm_token == "None" or fcm_token == None):
+            self.fcm_token = None
+        else:
+            self.fcm_token = fcm_token
         self.created_at = created_at
         self.address = None
         self.phone = None 

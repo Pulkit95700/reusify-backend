@@ -17,10 +17,11 @@ class ProductController(Resource):
         description = data.get('description')
         company_id = data.get('company_id')
         price = data.get('price')
+        mrp = data.get('mrp')
         imageUrls = data.get('imageUrls')
         categories = data.get('categories')
 
-        if not name or not description or not price or not categories or not company_id:
+        if not name or not description or not price or not categories or not company_id or not mrp:
             return ApiError(400, 'Missing name, description, price, company_id or categories'), 400
         
         if not name.strip() or not description.strip() or not company_id.strip():
@@ -61,7 +62,7 @@ class ProductController(Resource):
             if product:
                 return ApiError(400, 'Product already exists'), 400
             
-            new_product = Product(name, price, description, company_id, categories, imageUrls)
+            new_product = Product(name, price, mrp, description, company_id, categories, imageUrls)
             created_product = db.products.insert_one(new_product.to_dict())
 
             return ApiResponse(201, 'Product created successfully', {'product_id': str(created_product.inserted_id)}), 201
@@ -110,10 +111,11 @@ class ProductDetails(Resource):
         description = data.get('description')
         company_id = data.get('company_id')
         price = data.get('price')
+        mrp = data.get('mrp')
         imageUrls = data.get('imageUrls')
         categories = data.get('categories')
 
-        if not name or not description or not price or not categories or not company_id:
+        if not name or not description or not price or not categories or not company_id or not mrp:
             return ApiError(400, 'Missing name, description, price, company_id or categories'), 400
         
         if not name.strip() or not description.strip() or not company_id.strip():
@@ -145,8 +147,64 @@ class ProductDetails(Resource):
             if not product:
                 return ApiError(404, 'Product not found'), 404
             
-            db.products.update_one({'_id': ObjectId(product_id)}, {'$set': {'name': name, 'price': price, 'description': description, 'company_id': company_id, 'categories': categories, 'imageUrls': imageUrls}})
+            db.products.update_one({'_id': ObjectId(product_id)}, {'$set': {'name': name, 'price': price, 'mrp': mrp, 'description': description, 'company_id': company_id, 'categories': categories, 'imageUrls': imageUrls}})
             return ApiResponse(200, 'Product updated successfully'), 200
         except Exception as e:
             return ApiError(400, str(e)), 400
+
+@product_ns.route('/all-products')
+class Products(Resource):
+    def get(self):
+        """Get all products"""
+
+        # get query params
+        company_id = request.args.get('company_id')
+        category_id = request.args.get('category_id')
+        search = request.args.get('search')
+        lower_price = request.args.get('lower_price')
+        upper_price = request.args.get('upper_price')
+        limit = request.args.get('limit') or 10
+        offset = request.args.get('offset') or 0
         
+        try:
+            db = DB.get_db()
+
+            if(db is None):
+                return ApiError(500, 'Database Connection Error'), 500
+            
+            query = {}
+            if company_id:
+                query['company_id'] = company_id
+            if category_id:
+                query['categories'] = {'$in': [category_id]}
+            if search:
+                query['name'] = {'$regex': search, '$options': 'i'}
+            if lower_price and upper_price:
+                query['price'] = {'$gte': int(lower_price), '$lte': int(upper_price)}
+            
+            products = db.products.find(query).skip(int(offset)).limit(int(limit))
+
+            products = list(products)
+            for product in products:
+                product['id'] = str(product['_id'])
+                product.pop('_id')
+
+                # get company details
+                company = db.companies.find_one({'_id': ObjectId(product['company_id'])})
+    
+                product['company'] = {
+                    'id': str(company['_id']),
+                    'name': company['name'],
+                    'imageUrl': company['imageUrl']
+                }
+
+                # get categories details and select only required fields
+                categories = db.categories.find({'_id': {'$in': [ObjectId(category_id) for category_id in product['categories']]}})
+                
+                product['categories'] = [{'id': str(category['_id']), 'category_name': category['category_name'], 'imageUrl': category['imageUrl']} for category in categories]
+            
+            products = list(products)
+            return ApiResponse(200, 'Products', {'products': products}), 200
+        except Exception as e:
+            return ApiError(400, str(e)), 400
+

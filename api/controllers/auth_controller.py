@@ -55,7 +55,7 @@ class SignUp(Resource):
             
             bcrypt = lib.get_bcrypt()
             password = bcrypt.generate_password_hash(password).decode('utf-8')
-            new_user = User(full_name, password, email, fcm_token)
+            new_user = User(full_name, password, email, fcm_token=fcm_token)
             created_user = db.users.insert_one(new_user.to_json())
             
             accessToken = jwt.encode({

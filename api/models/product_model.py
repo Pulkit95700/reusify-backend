@@ -1,9 +1,11 @@
 from api.utils import get_timestamp
 
 class Product:
-    def __init__(self, name, price, description, company_id, categories=[], imageUrls=[], created_at=get_timestamp()):
+    def __init__(self, name, price, mrp, description, company_id, categories=[], imageUrls=[], created_at=get_timestamp()):
         self.name = name
         self.price = price
+        self.mrp = mrp
+        self.discount = round(((mrp - price) / mrp) * 100, 2)
         self.description = description
         self.company_id = company_id
         self.categories = categories
