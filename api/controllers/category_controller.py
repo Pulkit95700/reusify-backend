@@ -46,11 +46,12 @@ class CategoryDetails(Resource):
         """Get category details"""
         try:
             db = DB.get_db()
-
             category = db.categories.find_one({'_id': ObjectId(category_id)})
             if not category:
                 return ApiError(404, 'Category not found'), 404
-
+            
+            category['id'] = str(category['_id'])
+            category.pop('_id')
             return ApiResponse(200, 'Category details', {'category': category}), 200
         except Exception as e:
             return ApiError(400, str(e)), 400

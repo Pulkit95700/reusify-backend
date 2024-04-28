@@ -67,7 +67,7 @@ class CompanyDetails(Resource):
             
             company['id'] = str(company.get('_id'))
             company.pop('_id')
-            return ApiResponse(200, 'Company details', company), 200
+            return ApiResponse(200, 'Company details', {'company': company}), 200
         except Exception as e:
             return ApiError(400, str(e)), 400
 
