@@ -99,7 +99,7 @@ class CategoryDetails(Resource):
 class Categories(Resource):
     def get(self):
         """Get all categories"""
-        search = request.args.get('search')
+        search = request.args.get('search') or ''
         try:
             db = DB.get_db()
             categories = db.categories.find(

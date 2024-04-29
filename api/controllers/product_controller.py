@@ -5,7 +5,7 @@ from api.helpers.ApiError import ApiError
 from api.db import db as DB
 from bson.objectid import ObjectId
 from api.models.product_model import Product
-# from api.helpers.scraper import scrap_data_saahas
+from api.helpers.scraper import scrap_data_saahas
 
 product_ns = Namespace('product', description='Product related operations')
 
@@ -250,13 +250,13 @@ class TopFindProduct(Resource):
             return ApiError(400, str(e)), 400    
     
 
-# @product_ns.route('/scrap-data')
-# class ScrapData(Resource):
-#     def get(self):
-#         """Scrap data from a website"""
-#         try:
-#             # call the scraper function
-#             scrap_data_saahas()
-#             return ApiResponse(200, 'Data scrapped successfully'), 200
-#         except Exception as e:
-#             return ApiError(400, str(e)), 400
+@product_ns.route('/scrap-data')
+class ScrapData(Resource):
+    def get(self):
+        """Scrap data from a website"""
+        try:
+            # call the scraper function
+            scrap_data_saahas()
+            return ApiResponse(200, 'Data scrapped successfully'), 200
+        except Exception as e:
+            return ApiError(400, str(e)), 400
