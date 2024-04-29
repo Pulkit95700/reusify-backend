@@ -104,13 +104,13 @@ class Categories(Resource):
             db = DB.get_db()
             categories = db.categories.find(
                 {
-                    'name': {
+                    'category_name': {
                         '$regex': search,
                         '$options': 'i'
                     }
                 }
             )
-            categories = [{'id': str(category['_id']), 'name': category['name'], 'description': category['description'], 'imageUrl': category['imageUrl']} for category in categories]
+            categories = [{'id': str(category['_id']), 'category_name': category['category_name'], 'description': category['description'], 'imageUrl': category['imageUrl']} for category in categories]
             return ApiResponse(200, 'Categories list', {'categories': categories}), 200
         except Exception as e:
             return ApiError(400, str(e)), 400

@@ -62,24 +62,24 @@ def scrap_data_saahas():
         for i in range(0, len(allProductsLinks)):
             productLink = allProductsLinks[i]
             productLink.click()
-            driver.implicitly_wait(15)
-
+            driver.implicitly_wait(5)
             productName = driver.find_element(By.CLASS_NAME, "product_title").text
             productDescription = driver.find_element(By.CLASS_NAME, "woocommerce-Tabs-panel--description").find_element(By.TAG_NAME, "p").text
             productPrice = driver.find_element(By.CLASS_NAME, "price").text
             productPrice = productPrice.replace('₹', '')
             productPrice = productPrice.replace(',', '')
-            if(productPrice.find('-') != -1):
-                productPrice = productPrice.split('-')[0]
+            if(productPrice.find('–') != -1):
+                productPrice = productPrice.split('–')[0]
             productPrice = productPrice.strip()
             productPrice = float(productPrice)
             mrp = productPrice + 10 / 100 * productPrice
             print(mrp)
             productImageUrls = []
-
-            allImagesDiv = driver.find_elements(By.CLASS_NAME, "wvg-gallery-image slick-slide")
-            for image in allImagesDiv:
-                productImageUrls.append(image.find_element(By.TAG_NAME, "img").get_attribute("src"))
+            
+            driver.implicitly_wait(15)
+            # wait for 15 seconds here
+            
+            productImageUrls.append(driver.find_element(By.CSS_SELECTOR, "img.zoomImg").get_attribute("src"))
             
             # check if product already exists
             product = db.products.find_one({'name': productName})
