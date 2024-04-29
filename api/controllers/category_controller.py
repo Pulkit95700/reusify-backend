@@ -94,3 +94,23 @@ class CategoryDetails(Resource):
             return ApiResponse(200, 'Category deleted successfully'), 200
         except Exception as e:
             return ApiError(400, str(e)), 400
+        
+@category_ns.route('/all')
+class Categories(Resource):
+    def get(self):
+        """Get all categories"""
+        search = request.args.get('search')
+        try:
+            db = DB.get_db()
+            categories = db.categories.find(
+                {
+                    'name': {
+                        '$regex': search,
+                        '$options': 'i'
+                    }
+                }
+            )
+            categories = [{'id': str(category['_id']), 'name': category['name'], 'description': category['description'], 'imageUrl': category['imageUrl']} for category in categories]
+            return ApiResponse(200, 'Categories list', {'categories': categories}), 200
+        except Exception as e:
+            return ApiError(400, str(e)), 400

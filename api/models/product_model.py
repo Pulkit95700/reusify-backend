@@ -20,6 +20,8 @@ class Product:
             'description': self.description,
             'company_id': self.company_id,
             'rating': self.rating,
+            'mrp': self.mrp,
+            'discount': self.discount,
             'categories': self.categories,
             'imageUrls': self.imageUrls,
             'created_at': self.created_at

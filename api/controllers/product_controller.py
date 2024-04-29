@@ -5,6 +5,7 @@ from api.helpers.ApiError import ApiError
 from api.db import db as DB
 from bson.objectid import ObjectId
 from api.models.product_model import Product
+from api.helpers.scraper import scrap_data_saahas
 
 product_ns = Namespace('product', description='Product related operations')
 
@@ -191,7 +192,7 @@ class Products(Resource):
 
                 # get company details
                 company = db.companies.find_one({'_id': ObjectId(product['company_id'])})
-    
+
                 product['company'] = {
                     'id': str(company['_id']),
                     'name': company['name'],
@@ -208,3 +209,54 @@ class Products(Resource):
         except Exception as e:
             return ApiError(400, str(e)), 400
 
+@product_ns.route('/top-finds')
+class TopFindProduct(Resource):
+    def get(self):
+        """Products with most discount"""
+
+        offset = request.args.get('offset') or 0
+        limit = request.args.get('limit') or 10
+
+        try:
+            db = DB.get_db()
+
+            if db is None:
+                return ApiError(500, 'Database Connection Error'), 500
+
+            products = db.products.find().sort('discount', -1).skip(int(offset)).limit(int(limit))
+            products = list(products)
+
+            for product in products:
+                product['id'] = str(product['_id'])
+                product.pop('_id')
+
+                # get company details
+                company = db.companies.find_one({'_id': ObjectId(product['company_id'])})
+
+                product['company'] = {
+                    'id': str(company['_id']),
+                    'name': company['name'],
+                    'imageUrl': company['imageUrl']
+                }
+
+                # get categories details and select only required fields
+                categories = db.categories.find({'_id': {'$in': [ObjectId(category_id) for category_id in product['categories']]}})
+                
+                product['categories'] = [{'id': str(category['_id']), 'category_name': category['category_name'], 'imageUrl': category['imageUrl']} for category in categories]
+            
+            products = list(products)
+            return ApiResponse(200, 'Top find products', {'products': products}), 200
+        except Exception as e:
+            return ApiError(400, str(e)), 400    
+    
+
+@product_ns.route('/scrap-data')
+class ScrapData(Resource):
+    def get(self):
+        """Scrap data from a website"""
+        try:
+            # call the scraper function
+            scrap_data_saahas()
+            return ApiResponse(200, 'Data scrapped successfully'), 200
+        except Exception as e:
+            return ApiError(400, str(e)), 400
