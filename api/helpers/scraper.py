@@ -10,16 +10,13 @@
 # import os
 
 # # get the website here
-
-# site = "https://saahaszerowaste.com/waste-recycled-products/"
-
 # def scrap_data_saahas():
 #     options = webdriver.ChromeOptions()
 #     options.add_experimental_option("detach", True)
 #     # options.add_argument("--headless")
 
 #     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-#     driver.get(site)
+#     driver.get("https://saahaszerowaste.com/waste-recycled-products/")
 
 #     driver.implicitly_wait(10)
 
@@ -103,3 +100,29 @@
 #             driver.implicitly_wait(25)
 
 #             allProductsLinks = driver.find_elements(By.CLASS_NAME, "woocommerce-LoopProduct-link")
+
+# def scrap_data_etsy():
+#     options = webdriver.ChromeOptions()
+#     options.add_experimental_option("detach", True)
+#     # options.add_argument("--headless")
+
+#     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+#     driver.get("https://www.etsy.com/in-en/market/recycled_products")
+
+#     driver.implicitly_wait(10)
+
+#     db = DB.get_db()
+#     if(db is None):
+#         return ApiError(500, 'Database Connection Error'), 500
+    
+#     # making company if it does not exist
+#     company = db.companies.find_one({'company_name': 'Etsy'})
+#     company_id = None
+#     if not company:
+#         imgSrc = "https://cdn.worldvectorlogo.com/logos/etsy-2.svg"
+#         new_company = Company('Etsy', '55 Washington St, Suite 512, Brooklyn, NY 11201', '9876543210', 'etsy@gmail.com', '7188557955', imgSrc)
+#         company_id = str(db.companies.insert_one(new_company.to_dict()).inserted_id)
+#     else:
+#         company_id = str(company['_id'])
+    
+    

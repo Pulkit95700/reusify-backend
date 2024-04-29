@@ -5,7 +5,7 @@ from api.helpers.ApiError import ApiError
 from api.db import db as DB
 from bson.objectid import ObjectId
 from api.models.product_model import Product
-from api.helpers.scraper import scrap_data_saahas
+# from api.helpers.scraper import scrap_data_saahas
 
 product_ns = Namespace('product', description='Product related operations')
 
