@@ -13,7 +13,7 @@ def protected(f):
         try:
             accessToken = request.headers.get('Authorization')
             if not accessToken:
-                return ApiError(401, 'Access token is missing'), 401
+                return ApiError(401, 'Access token is missing'), 401 
             accessToken = accessToken.split(' ')[1]
             payload = jwt.decode(accessToken, Config.JWT_SECRET_KEY, algorithms=['HS256'])
             user = db.get_db().users.find_one({'_id': ObjectId(payload['_id'])})

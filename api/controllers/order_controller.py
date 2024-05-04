@@ -1,3 +1,4 @@
+import json
 from flask_restx import Namespace, Resource
 from flask import request
 from api.helpers.ApiResponse import ApiResponse
@@ -5,26 +6,25 @@ from api.helpers.ApiError import ApiError
 from api.db import db as DB
 from bson.objectid import ObjectId
 from api.models.orders_model import Order
+from api.middlewares.auth_middleware import protected
 
 order_ns = Namespace('order', description='Order related operations')
 
 @order_ns.route('/create-order')
 class OrderController(Resource):
-    def post(self):
-        """Create a new order"""
+    @protected
+    def post(user,  self):
+        # """Create a new order"""
         data = request.get_json()
-        order_id = data.get('order_id')
-        product_name = data.get('product_name')
+        product_id = data.get('product_id')
         quantity = data.get('quantity')
         price = data.get('price')
-        customer_name = data.get('customer_name')
-        customer_email = data.get('customer_email')
 
-        if not order_id or not product_name or not quantity or not price or not customer_name or not customer_email:
+        if not product_id or not quantity or not price:
             return ApiError(400, 'Missing required fields'), 400
         
         try:
-            new_order = Order(order_id, product_name, quantity, price, customer_name, customer_email)
+            new_order = Order(product_id, quantity, price , str(user['_id']))
             db = DB.get_db()
             if db is None:
                 return ApiError(500, 'Database Connection Error'), 500
@@ -38,9 +38,11 @@ class OrderController(Resource):
 
 @order_ns.route('/<string:order_id>')
 class OrderDetails(Resource):
-    def get(self, order_id):
-        """Get order details"""
+    @protected
+    def get(user, self, order_id):
+        # """Get order details"""
         try:
+            order_id = str(order_id)
             db = DB.get_db()
             if db is None:
                 return ApiError(500, 'Database Connection Error'), 500
@@ -51,12 +53,13 @@ class OrderDetails(Resource):
 
             order.pop('_id')
 
+            print(order)
             return ApiResponse(200, 'Order details', {'order': order}), 200
         except Exception as e:
             return ApiError(400, str(e)), 400
     
     def put(self, order_id):
-        """Update order details"""
+        # """Update order details"""
         data = request.get_json()
         # Update the order details here
         pass
@@ -64,7 +67,6 @@ class OrderDetails(Resource):
 @order_ns.route('/all-orders')
 class Orders(Resource):
     def get(self):
-        """Get all orders"""
         try:
             db = DB.get_db()
             if db is None:
@@ -72,11 +74,17 @@ class Orders(Resource):
 
             orders = db.orders.find()
 
-            orders = list(orders)
+            orders_list = []
             for order in orders:
-                order.pop('_id')
+                try:
+                    order['_id'] = str(order['_id'])  # Convert ObjectId to string
+                    
+                    orders_list.append(order)
+                except Exception as e:
+                    print(f"Error converting ObjectId to string for order: {order}")
+                    print(f"Error: {e}")
 
-            return ApiResponse(200, 'Orders', {'orders': orders}), 200
+            return ApiResponse(200, 'Orders', {'orders': orders_list}), 200
         except Exception as e:
             return ApiError(400, str(e)), 400
 

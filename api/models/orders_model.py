@@ -1,22 +1,18 @@
 from api.utils import get_timestamp
 
 class Order:
-    def __init__(self, order_id, product_name, quantity, price, customer_name, customer_email, created_at=get_timestamp()):
-        self.order_id = order_id
-        self.product_name = product_name
+    def __init__(self, product_id, quantity, price, user_id, created_at=get_timestamp()):
+        self.product_id = product_id
         self.quantity = quantity
         self.price = price
-        self.customer_name = customer_name
-        self.customer_email = customer_email
+        self.user_id = user_id
         self.created_at = created_at
     
     def to_dict(self):
         return {
-            'order_id': self.order_id,
-            'product_name': self.product_name,
+            'product_id': self.product_id,
             'quantity': self.quantity,
             'price': self.price,
-            'customer_name': self.customer_name,
-            'customer_email': self.customer_email,
+            'user_id': self.user_id,
             'created_at': self.created_at
         }
