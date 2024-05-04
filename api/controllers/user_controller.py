@@ -5,7 +5,7 @@ from api.helpers.ApiError import ApiError
 from api.db import db as DB
 from bson.objectid import ObjectId
 from api.middlewares.auth_middleware import protected
-from api.models.wishlist_model import WishList
+from api.models.wishlist_model import WishListItem
 
 user_ns = Namespace('user', description='User related operations')
 
@@ -96,27 +96,48 @@ class Wishlist(Resource):
         """Get user wishlist"""
         
         userId = str(user.get('_id'))
-
+        limit = request.args.get('limit') or 10
+        offset = request.args.get('offset') or 0
         try:
             db = DB.get_db()
-            wishlist = db.wishlists.find_one({'user_id': userId})
-            if not wishlist:
-                return ApiResponse(200, 'Wishlist details', {'wishlist': None}), 200
+            if db is None:
+                return ApiError(500, 'Database Connection Error'), 500
             
-            wishlist['id'] = str(wishlist['_id'])
-            wishlist.pop('_id')
-            wishlist.pop('user_id')
-            wishlist['products'] = list(wishlist['products'])
-            for product in wishlist['products']:
-                product_id = product['product_id']
-                product_details = db.products.find_one({'_id': ObjectId(product_id)})
-                product_details.pop('_id')
-                product_details.pop('created_at')
-                product_details.pop('company_id')
-                product_details.pop('categories')
-                product['product'] = product_details
+            wishlistitems = db.wishlistitems.find({'user_id': userId}).skip(offset).limit(offset)
+
+            if not wishlistitems:
+                return ApiResponse(200, 'Wishlist is empty', {'wishlist': None}), 200
             
-            return ApiResponse(200, 'Wishlist details', {'wishlist': wishlist}), 200
+            products = []
+            for item in wishlistitems:
+                product = db.products.find_one({'_id': ObjectId(item.get('product_id'))})
+                product['id'] = str(product.get('_id'))
+                product.pop('_id')
+                product.pop('created_at')
+                # fetch comaapny details
+                company = db.companies.find_one({'_id': ObjectId(product.get('company_id'))})
+                company = {
+                    'id': str(company.get('_id')),
+                    'name': company.get('name'),
+                    'imageUrl': company.get('imageUrl') or ''
+                }
+
+                product['company'] = company
+                product.pop('company_id')
+                # fetch category details
+                categories = []
+                for category_id in product['categories']:
+                    category = db.categories.find_one({'_id': ObjectId(category_id)})
+                    category['id'] = str(category.get('_id'))
+                    category.pop('_id')
+                    category.pop('created_at')
+                    category.pop('description')
+                    categories.append(category)
+                product.pop('categories')
+                product['categories'] = list(categories)
+                products.append(product)
+
+            return ApiResponse(200, 'Wishlist items', {'wishlist': products}), 200
         except Exception as e:
             return ApiError(400, str(e)), 400
     
@@ -131,7 +152,7 @@ class Wishlist(Resource):
 
         if not productId:
             return ApiError(400, 'Missing product_id'), 400
-
+        
         try:
             db = DB.get_db()
 
@@ -139,28 +160,22 @@ class Wishlist(Resource):
             if not product:
                 return ApiError(404, 'Product not found'), 404
             
-            wishlist = db.wishlists.find_one({'user_id': userId})
-            if not wishlist:
-                new_wishlist = WishList(userId, productId)
-                created_wishlist = db.wishlists.insert_one(new_wishlist.to_dict())
-            else:
-                # Check if product already exists in wishlist
-                product_exists = False
-                for product in wishlist['products']:
-                    if product['product_id'] == productId:
-                        product_exists = True
-                        break
-                
-                if not product_exists:
-                    db.wishlists.update_one(
-                        {'user_id': userId},
-                        {'$push': {'products': {'product_id': productId}}}
-                    )
+            # check if product already exists in wishlist
+            wishlistitem = db.wishlistitems.find_one({
+                'user_id': userId,
+                'product_id': productId
+            })
+
+            if wishlistitem:
+                return ApiError(201, 'Product added to wishlist'), 201
+            
+            wishlistitem = WishListItem(userId, productId)
+            db.wishlistitems.insert_one(wishlistitem.to_dict())
 
             return ApiResponse(201, 'Product added to wishlist successfully'), 201
         except Exception as e:
             return ApiError(400, str(e)), 400
-    
+        
     @protected
     def delete(user, self):
         """Remove product from wishlist"""
@@ -180,22 +195,19 @@ class Wishlist(Resource):
             if not product:
                 return ApiError(404, 'Product not found'), 404
             
-            wishlist = db.wishlists.find_one({'user_id': userId})
-            if not wishlist:
-                return ApiError(404, 'Wishlist not found'), 404
-            
-            product_exists = False
-            for product in wishlist['products']:
-                if product['product_id'] == productId:
-                    product_exists = True
-                    break
-                
-            if product_exists:
-                db.wishlists.update_one(
-                    {'user_id': userId},
-                    {'$pull': {'products': {'product_id': productId}}}
-                )
+            wishlistitem = db.wishlistitems.find_one({
+                'user_id': userId,
+                'product_id': productId
+            })
+
+            if not wishlistitem:
+                return ApiResponse(200, 'Product not found in wishlist', {'wishlist': None}), 200
+            db.wishlistitems.delete_one({
+                'user_id': userId,
+                'product_id': productId
+            })
 
             return ApiResponse(200, 'Product removed from wishlist successfully'), 200
+
         except Exception as e:
             return ApiError(400, str(e)), 400

@@ -8,6 +8,8 @@ from api.models.category_model import Category
 from api.models.company_model import Company
 from api.models.product_model import Product
 import os
+import random
+import math
 
 # get the website here
 def scrap_data_saahas():
@@ -102,109 +104,98 @@ def scrap_data_saahas():
             allProductsLinks = driver.find_elements(By.CLASS_NAME, "woocommerce-LoopProduct-link")
 
 
-# for etsy
+def scrap_data_amazon():
+    amazon_link = "https://www.amazon.in/recycled-products/s?k=recycled+paper+bags"
+    options = webdriver.ChromeOptions()
+    options.add_experimental_option("detach", True)
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    driver.get(amazon_link)
 
-categories = [
-    {'name': "recyclable plastic", 'url': 'https://images.pexels.com/photos/802221/pexels-photo-802221.jpeg?auto=compress&cs=tinysrgb&w=600'},
-{'name': "recyclable paper", 'url': 'https://images.pexels.com/photos/19868406/pexels-photo-19868406/free-photo-of-coffee-mug-and-cookies-on-paper-and-feathers.jpeg?auto=compress&cs=tinysrgb&w=600'},
-   {'name': "Reusable glass", 'url': 'https://images.pexels.com/photos/3735200/pexels-photo-3735200.jpeg?auto=compress&cs=tinysrgb&w=600'},
-    {'name': "recyclable metal", 'url': 'https://images.pexels.com/photos/4195603/pexels-photo-4195603.jpeg?auto=compress&cs=tinysrgb&w=600'},
-    {'name': "Recycled fabric", 'url': 'https://images.pexels.com/photos/6044417/pexels-photo-6044417.jpeg?auto=compress&cs=tinysrgb&w=600'},
-]
+    driver.implicitly_wait(10)
 
-# def scrap_data_etsy():
-#     options = webdriver.ChromeOptions()
-#     options.add_experimental_option("detach", True)
-#     # options.add_argument("--headless")
-
-#     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-#     driver.get("https://www.etsy.com/")
-
-#     driver.implicitly_wait(15)
-
-#     db = DB.get_db()
-#     if(db is None):
-#         return ApiError(500, 'Database Connection Error'), 500
+    company_name = 'Amazon'
+    db = DB.get_db()
+    if(db is None):
+        return ApiError(500, 'Database Connection Error'), 500
     
-#     # making company if it does not exist
-#     company = db.companies.find_one({'company_name': 'Etsy'})
-#     company_id = None
-#     if not company:
-#         imgSrc = "https://cdn.worldvectorlogo.com/logos/etsy-2.svg"
-#         new_company = Company('Etsy', '55 Washington St, Suite 512, Brooklyn, NY 11201', '9876543210', 'etsy@gmail.com', '7188557955', imgSrc)
-#         company_id = str(db.companies.insert_one(new_company.to_dict()).inserted_id)
-#     else:
-#         company_id = str(company['_id'])
-    
-#     for category in categories:
-#         # checkif category already exists
-#         category_name = category['name']
-#         category = db.categories.find_one({'category_name': category_name})
-#         category_id = None
+    # making company if it does not exist
+    company = db.companies.find_one({'name': company_name})
 
-#         print(category)
-#         if not category:
-#             new_category = Category(category_name, category_name, category['url'])
-#             category_id = str(db.categories.insert_one(new_category.to_dict()).inserted_id)
-#         else:
-#             category_id = str(category['_id'])
+    company_id = None
+    
+    if not company:
+        imgSrc = driver.find_element(By.ID, "nav-logo-sprites").get_attribute("src")
+        new_company = Company(company_name, 'Amazon', '9876543210', 'amazon@gmail.com', imgSrc)
+        company_id = str(db.companies.insert_one(new_company.to_dict()).inserted_id)
+    else:
+        company_id = str(company['_id'])
+    
+
+    allProductsDiv = driver.find_elements(By.CSS_SELECTOR, 'div.puis-card-container')
+
+    category_name = 'Paper Bags'  
+    description = 'Folow thr new habit of taking only paper bags and ignore plastic bags.'
+    imageUrl = driver.find_element(By.ID, "nav-logo-sprites").get_attribute("src")
+
+    # checkif category already exists
+    category = db.categories.find_one({'category_name': category_name})
+    category_id = None
+    if not category:
+        new_category = Category(category_name, description, imageUrl)
+        category_id = str(db.categories.insert_one(new_category.to_dict()).inserted_id)
+    else:
+        category_id = str(category['_id'])
+    
+    for i in range(0, len(allProductsDiv)):
+        productDiv = allProductsDiv[i]
+        productDiv.click()
+
+        driver.implicitly_wait(5)
+        # change the tab 
+        driver.switch_to.window(driver.window_handles[1])
+
+        driver.implicitly_wait(5)
+
+        product_name = driver.find_element(By.ID, "productTitle").text
+        # check if product description is present
+
+        product_description = None
+        try:
+            product_description = driver.find_element(By.ID, "productDescription")
+            product_description = product_description.text
+        except:
+            product_description = product_name
+
+
+        price = driver.find_element(By.CSS_SELECTOR, "span.a-price-whole").text
+        price = price.replace('.', '')
+
+        print(price)
+        mrp = 120 * int(price) / 100
+
+        product_image_urls = []
+        allInputButtonElements = driver.find_elements(By.CLASS_NAME, "a-button-input")
+
+        # choose a random number between 3 and 4
+        random_number = math.floor(random.random() * 4) + 1 + 4
+        for i in range(4, random_number + 1):
+            allInputButtonElements[i].click()
+            driver.implicitly_wait(5)
+            image = driver.find_elements(By.CSS_SELECTOR, "img.a-dynamic-image")
+            product_image_urls.append(image[i-4].get_attribute("src"))
         
-#         inputElement = driver.find_element(By.ID, "global-enhancements-search-query")
-#         print("innput")
-#         # clear the input field
-#         inputElement.clear()
-#         inputElement.send_keys(category_name)  
+        print("images fetched")
+        # check if product already exists
+        product = db.products.find_one({'name': product_name})
 
-#         searchButton = driver.find_element(By.CLASS_NAME, "wt-input-btn-group__btn global-enhancements-search-input-btn-group__btn")
-#         searchButton.click()
-
-#         driver.implicitly_wait(15)
-
-#         olElement = driver.find_element(By.CLASS_NAME, "wt-grid wt-grid--block wt-pl-xs-0 tab-reorder-container")
-
-#         allH3Elements = olElement.find_elements(By.CLASS_NAME, "wt-text-caption v2-listing-card__title wt-text-truncate")
-
-#         for i in range(0, 11):
-#             h3Element = allH3Elements[i]
-#             h3Element.click()
-#             driver.implicitly_wait(15)
-
-#             # changing the window
-#             driver.switch_to.window(driver.window_handles[1])
-
-#             driver.implicitly_wait(5)
-
-#             productName = driver.find_element(By.CLASS_NAME, "wt-text-body-01 wt-line-height-tight wt-break-word wt-mt-xs-1").text
-#             productDescription = driver.find_element(By.ID, "wt-content-toggle-product-details-read-more").find_element(By.TAG_NAME, "p").text
-#             # product description to maximum length of 500
-#             productDescription = productDescription[:500]
-#             productPrice = driver.find_element(By.CLASS_NAME, "wt-text-title-larger wt-mr-xs-1").text
-#             productPrice = productPrice.replace('₹', '')
-#             # remove all instead of numbers
-#             productPrice = productPrice.replace(',', '')
-#             for ch in productPrice:
-#                 if not ch.isdigit():
-#                     productPrice = productPrice.replace(ch, '')
-#             productPrice = productPrice.strip()
-#             productPrice = float(productPrice)
-
-#             productImageUrls = []
-
-#             ulElement = driver.find_element(By.CLASS_NAME, "wt-list-unstyled  wt-position-relative carousel-pane-list")
-#             allImagesEle = ulElement.find_elements(By.TAG_NAME, "img")
-
-#             for image in allImagesEle:
-#                 productImageUrls.append(image.get_attribute("src"))
-            
-#             mrp = productPrice + 0.3 * productPrice
-#             # check if product already exists
-#             product = db.products.find({'name': productName})
-#             if not product:
-#                 new_product = Product(productName, productPrice, mrp, productDescription, company_id, [category_id], productImageUrls)
-#                 db.products.insert_one(new_product.to_dict())
-#             else:
-#                 print('Product already exists')
-            
-#             driver.close()
-#             driver.switch_to.window(driver.window_handles[0])
-#             driver.implicitly_wait(15)
+        if not product:
+            new_product = Product(product_name, int(price), mrp, product_description, company_id, [category_id], product_image_urls)
+            db.products.insert_one(new_product.to_dict())
+        else:
+            print('Product already exists')
+        
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+        driver.implicitly_wait(5)
+        allProductsDiv = driver.find_elements(By.CSS_SELECTOR, 'div.puis-card-container')
+        driver.implicitly_wait(5)
