@@ -5,7 +5,8 @@ from api.helpers.ApiError import ApiError
 from api.db import db as DB
 from bson.objectid import ObjectId
 from api.models.product_model import Product
-from api.helpers.scraper import scrap_data_saahas
+from api.helpers.scraper import scrap_data_amazon
+from api.middlewares.auth_middleware import protected
 
 product_ns = Namespace('product', description='Product related operations')
 
@@ -155,7 +156,8 @@ class ProductDetails(Resource):
 
 @product_ns.route('/all-products')
 class Products(Resource):
-    def get(self):
+    @protected
+    def get(user, self):
         """Get all products"""
 
         # get query params
@@ -201,11 +203,17 @@ class Products(Resource):
 
                 # get categories details and select only required fields
                 categories = db.categories.find({'_id': {'$in': [ObjectId(category_id) for category_id in product['categories']]}})
-                
+                is_favorite = db.wishlistitems.find_one({'product_id': product['id'], 'user_id': str(user.get('_id'))})
+
+                if is_favorite:
+                    product['is_favorite'] = True
+                else:
+                    product['is_favorite'] = False
+                    
                 product['categories'] = [{'id': str(category['_id']), 'category_name': category['category_name'], 'imageUrl': category['imageUrl']} for category in categories]
             
-            products = list(products)
-            return ApiResponse(200, 'Products', {'products': products}), 200
+
+            return ApiResponse(200, 'Products', {'products' : products}), 200
         except Exception as e:
             return ApiError(400, str(e)), 400
 
@@ -249,6 +257,131 @@ class TopFindProduct(Resource):
         except Exception as e:
             return ApiError(400, str(e)), 400    
     
+@product_ns.route('/top-rated')
+class TopRatedProduct(Resource):
+    def get(self):
+        """Top rated products"""
+
+        offset = request.args.get('offset') or 0
+        limit = request.args.get('limit') or 10
+
+        try:
+            db = DB.get_db()
+
+            if db is None:
+                return ApiError(500, 'Database Connection Error'), 500
+
+            products = db.products.find().sort('rating', -1).skip(int(offset)).limit(int(limit))
+            products = list(products)
+
+            for product in products:
+                product['id'] = str(product['_id'])
+                product.pop('_id')
+
+                # get company details
+                company = db.companies.find_one({'_id': ObjectId(product['company_id'])})
+
+                product['company'] = {
+                    'id': str(company['_id']),
+                    'name': company['name'],
+                    'imageUrl': company['imageUrl']
+                }
+
+                # get categories details and select only required fields
+                categories = db.categories.find({'_id': {'$in': [ObjectId(category_id) for category_id in product['categories']]}})
+                
+                product['categories'] = [{'id': str(category['_id']), 'category_name': category['category_name'], 'imageUrl': category['imageUrl']} for category in categories]
+            
+            products = list(products)
+            return ApiResponse(200, 'Top rated products', {'products': products}), 200
+        except Exception as e:
+            return ApiError(400, str(e)), 400   
+
+# most popular products, products with most orders
+@product_ns.route('/most-popular')
+class MostPopularProduct(Resource):
+    def get(self):
+        """Most popular products"""
+
+        offset = request.args.get('offset') or 0
+        limit = request.args.get('limit') or 10
+
+        try:
+            db = DB.get_db()
+
+            if db is None:
+                return ApiError(500, 'Database Connection Error'), 500
+
+            products = db.products.aggregate([
+                {
+                    '$lookup': {
+                        'from': 'orders',
+                        'localField': '_id',
+                        'foreignField': 'product_id',
+                        'as': 'orders'
+                    }
+                },
+                # filter products with orders 
+                {
+                    # only show size of orders
+                    '$addFields': {
+                        'orders': {'$size': '$orders'}
+                    }
+                },
+                {
+                    '$project': {
+                        'name': 1,
+                        'description': 1,
+                        'price': 1,
+                        'mrp': 1,
+                        'company_id': 1,
+                        'categories': 1,
+                        'imageUrls': 1,
+                        'rating': 1,
+                        'discount': 1,
+                        'created_at': 1,
+                        'orders': 1,
+                        'company.name': 1,
+                        'company.imageUrl': 1
+                    }
+                },
+                {
+                    '$sort': {
+                        'orders': -1
+                    }
+                },
+                {
+                    '$skip': int(offset)
+                },
+                {
+                    '$limit': int(limit)
+                }
+            ])
+
+            products = list(products)
+
+            for product in products:
+                product['id'] = str(product['_id'])
+                product.pop('_id')
+
+                # get company details
+                company = db.companies.find_one({'_id': ObjectId(product['company_id'])})
+
+                product['company'] = {
+                    'id': str(company['_id']),
+                    'name': company['name'],
+                    'imageUrl': company['imageUrl']
+                }
+
+                # get categories details and select only required fields
+                categories = db.categories.find({'_id': {'$in': [ObjectId(category_id) for category_id in product['categories']]}})
+                
+                product['categories'] = [{'id': str(category['_id']), 'category_name': category['category_name'], 'imageUrl': category['imageUrl']} for category in categories]
+            
+            products = list(products)
+            return ApiResponse(200, 'Most popular products', {'products': products}), 200
+        except Exception as e:
+            return ApiError(400, str(e)), 400
 
 @product_ns.route('/scrap-data')
 class ScrapData(Resource):
@@ -256,7 +389,7 @@ class ScrapData(Resource):
         """Scrap data from a website"""
         try:
             # call the scraper function
-            scrap_data_saahas()
+            scrap_data_amazon()
             return ApiResponse(200, 'Data scrapped successfully'), 200
         except Exception as e:
             return ApiError(400, str(e)), 400
