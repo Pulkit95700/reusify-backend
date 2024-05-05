@@ -6,6 +6,7 @@ from .controllers.category_controller import category_ns
 from .controllers.product_controller import product_ns
 from .controllers.cart_controller import cart_ns
 from .controllers.user_controller import user_ns    
+from .controllers.banner_controller import banner_ns
 from .config.config import config_dict, Config
 from flask_bcrypt import Bcrypt
 from api.db import db
@@ -27,4 +28,5 @@ def create_app(config=config):
     api.add_namespace(product_ns, path='/product')
     api.add_namespace(cart_ns, path='/cart')
     api.add_namespace(user_ns, path='/user')
+    api.add_namespace(banner_ns, path='/banner')
     return app
